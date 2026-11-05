@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Návody a odkazy ke kuchyni</title>
+<style>
+  :root { --bg: #f4f6fa; --karta: #fff; --text: #1d2433; --dim: #667085; --akcent: #1a3f8f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 22px; margin: 4px 0 2px; }
+  .pod { color: var(--dim); font-size: 14px; margin-bottom: 18px; }
+  a.odkaz { display: block; background: var(--karta); border-radius: 12px; padding: 14px 16px; margin: 10px 0; text-decoration: none;
+            color: var(--text); box-shadow: 0 1px 3px rgba(16, 24, 40, .1); border-left: 4px solid var(--akcent); }
+  a.odkaz b { display: block; font-size: 16px; }
+  a.odkaz span { color: var(--dim); font-size: 12px; word-break: break-all; }
+  .chyba { background: #fff3f0; border-radius: 10px; padding: 14px; color: #8a2a12; }
+  footer { color: var(--dim); font-size: 12px; margin-top: 24px; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="nadpis">Návody a odkazy ke kuchyni</h1>
+  <div class="pod" id="pod"></div>
+  <div id="seznam"></div>
+  <footer>Stránka jen zobrazuje odkazy, které jsou uložené přímo v QR kódu z cenové nabídky – nic se neukládá.</footer>
+</main>
+<script>
+// Rozcestník (Bridge, 5. 11. 2026): QR kód z cenové nabídky otevře tuto stránku s odkazy v části za znakem #.
+// Formát: "z" + base64url(deflate-raw(JSON)) nebo "j" + base64url(JSON); JSON = {t: nadpis, d: datum, o: [[název, adresa], ...]}
+(async () => {
+  const el = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  try {
+    const h = decodeURIComponent(location.hash.slice(1));
+    if (!h) throw new Error("V adrese nejsou žádné odkazy.");
+    const b64 = h.slice(1).replace(/-/g, "+").replace(/_/g, "/");
+    const bin = Uint8Array.from(atob(b64 + "===".slice((b64.length + 3) % 4)), (c) => c.charCodeAt(0));
+    let txt;
+    if (h[0] === "z") {
+      const st = new Blob([bin]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      txt = await new Response(st).text();
+    } else txt = new TextDecoder().decode(bin);
+    const d = JSON.parse(txt);
+    if (d.t) { el("nadpis").textContent = d.t; document.title = d.t; }
+    el("pod").textContent = (d.d ? d.d + " · " : "") + (d.o || []).length + " odkazů";
+    el("seznam").innerHTML = (d.o || []).filter((x) => /^https?:\/\//i.test(x[1]))
+      .map(([t, u]) => `<a class="odkaz" href="${esc(u)}" target="_blank" rel="noopener"><b>${esc(t)}</b><span>${esc(u.replace(/^https?:\/\//, "").slice(0, 70))}</span></a>`).join("");
+  } catch (e) {
+    el("seznam").innerHTML = `<div class="chyba">Odkazy se nepodařilo načíst (${esc(e.message || e)}). Naskenujte prosím QR kód znovu nebo použijte jednotlivé QR kódy v nabídce.</div>`;
+  }
+})();
+</script>
+</body>
+</html>
