@@ -29,11 +29,14 @@
 <script>
 // Rozcestník (Bridge, 5. 11. 2026): QR kód z cenové nabídky otevře tuto stránku s odkazy v části za znakem #.
 // Formát: "z" + base64url(deflate-raw(JSON)) nebo "j" + base64url(JSON); JSON = {t: nadpis, d: datum, o: [[název, adresa], ...]}
-(async () => {
+// 5. 11.: odkazy v ?d=… (nový QR = nová adresa = stránka se vždy načte znovu); starší QR mají odkazy za # – při změně # se
+// stránka v telefonu nenačte znovu (otevřený panel), proto i obsluha hashchange
+async function nacti() {
   const el = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   try {
-    const h = decodeURIComponent(location.hash.slice(1));
+    const q = new URLSearchParams(location.search).get("d");
+    const h = q || decodeURIComponent(location.hash.slice(1));
     if (!h) throw new Error("V adrese nejsou žádné odkazy.");
     const b64 = h.slice(1).replace(/-/g, "+").replace(/_/g, "/");
     const bin = Uint8Array.from(atob(b64 + "===".slice((b64.length + 3) % 4)), (c) => c.charCodeAt(0));
@@ -50,7 +53,10 @@
   } catch (e) {
     el("seznam").innerHTML = `<div class="chyba">Odkazy se nepodařilo načíst (${esc(e.message || e)}). Naskenujte prosím QR kód znovu nebo použijte jednotlivé QR kódy v nabídce.</div>`;
   }
-})();
+}
+nacti();
+window.addEventListener("hashchange", nacti);
+window.addEventListener("pageshow", (e) => { if (e.persisted) nacti(); });
 </script>
 </body>
 </html>
