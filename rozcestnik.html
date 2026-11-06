@@ -46,10 +46,17 @@ async function nacti() {
       txt = await new Response(st).text();
     } else txt = new TextDecoder().decode(bin);
     const d = JSON.parse(txt);
-    if (d.t) { el("nadpis").textContent = d.t; document.title = d.t; }
-    el("pod").textContent = (d.d ? d.d + " · " : "") + (d.o || []).length + " odkazů";
-    el("seznam").innerHTML = (d.o || []).filter((x) => /^https?:\/\//i.test(x[1]))
-      .map(([t, u]) => `<a class="odkaz" href="${esc(u)}" target="_blank" rel="noopener"><b>${esc(t)}</b><span>${esc(u.replace(/^https?:\/\//, "").slice(0, 70))}</span></a>`).join("");
+    // 6. 11.: krátký zápis – [adresa] nebo [název, adresa]; ~s Siemens, ~b Bosch (název se dopočítá), ~h soubor vedle této stránky
+    const PREF = { "~s": "https://www.siemens-home.bsh-group.com/cz/cs/mkt-product/", "~b": "https://www.bosch-home.com/cz/cs/mkt-product/",
+      "~f": "https://www.google.com/search?q=site%3Aeshop-franke.cz%20", "~c": "https://www.google.com/search?q=site%3Aeshop-schock.cz%20",
+      "~g": "https://www.google.com/search?q=", "~o": "https://www.solight.cz/", "~e": "https://eshop-franke.cz/", "~k": "https://eshop-schock.cz/" };
+    const plna = (u) => u.startsWith("~h") ? new URL(u.slice(2), location.href.split("?")[0].split("#")[0]).href : (PREF[u.slice(0, 2)] ? PREF[u.slice(0, 2)] + u.slice(2) : u);
+    const nazev = (t, u) => t || (u.startsWith("~s") ? `Siemens ${u.slice(2)} – návod k použití` : u.startsWith("~b") ? `Bosch ${u.slice(2)} – návod k použití` : u);
+    const odk = (d.o || []).map((x) => x.length > 1 ? [nazev(x[0], x[1]), plna(x[1])] : [nazev("", x[0]), plna(x[0])]).filter((x) => /^https?:\/\//i.test(x[1]));
+    const tit = d.t ? (d.t.startsWith("Návody") ? d.t : "Návody a odkazy – " + d.t) : "Návody a odkazy ke kuchyni";
+    el("nadpis").textContent = tit; document.title = tit;
+    el("pod").textContent = (d.d ? d.d + " · " : "") + odk.length + " odkazů";
+    el("seznam").innerHTML = odk.map(([t, u]) => `<a class="odkaz" href="${esc(u)}" target="_blank" rel="noopener"><b>${esc(t)}</b><span>${esc(u.replace(/^https?:\/\//, "").slice(0, 70))}</span></a>`).join("");
   } catch (e) {
     el("seznam").innerHTML = `<div class="chyba">Odkazy se nepodařilo načíst (${esc(e.message || e)}). Naskenujte prosím QR kód znovu nebo použijte jednotlivé QR kódy v nabídce.</div>`;
   }
